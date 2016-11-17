@@ -4,3 +4,10 @@ version = "0.1.0"
 authors = ["Jamie Robinson <fjrobinson@ku.edu>"]
 
 [dependencies]
+clippy = {version = "*", optional = true}
+byteorder = "*"
+rand = "0.3"
+
+[features]
+default = []
+dev = []
