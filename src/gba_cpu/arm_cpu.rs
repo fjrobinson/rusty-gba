@@ -3,7 +3,7 @@ use self::ARM7Mode::*;
 
 use std::fmt;
 use gba_cpu::RType;
-use gba_cpu::IType;
+use gba_cpu::register::Register;
 
 // Important PSR bits from:
 // http://www.atmel.com/Images/DDI0029G_7TDMI_R3_trm.pdf
@@ -50,111 +50,60 @@ pub const R12:      i8 = 12;
 pub const R13:      i8 = 13;
 pub const R14:      i8 = 14;
 pub const R15:      i8 = 15;
-pub const CPSR:     i8 = 16;
-pub const R8_FIQ:   i8 = 17;
-pub const R9_FIQ:   i8 = 18;
-pub const R10_FIQ:  i8 = 19;
-pub const R11_FIQ:  i8 = 20;
-pub const R12_FIQ:  i8 = 21;
-pub const R13_FIQ:  i8 = 22;
-pub const R14_FIQ:  i8 = 23;
-pub const SPSR_FIQ: i8 = 24;
-pub const R13_SV:   i8 = 25;
-pub const R14_SV:   i8 = 26;
-pub const SPSR_SV:  i8 = 27;
-pub const R13_ABT:  i8 = 28;
-pub const R14_ABT:  i8 = 29;
-pub const SPSR_ABT: i8 = 30;
-pub const R13_IRQ:  i8 = 31;
-pub const R14_IRQ:  i8 = 32;
-pub const SPSR_IRQ: i8 = 33;
-pub const R13_UND:  i8 = 34;
-pub const R14_UND:  i8 = 35;
-pub const SPSR_UND: i8 = 36;
-pub const NUM_REGS: usize = 37;
+pub const R8_FIQ:   i8 = 16;
+pub const R9_FIQ:   i8 = 17;
+pub const R10_FIQ:  i8 = 18;
+pub const R11_FIQ:  i8 = 19;
+pub const R12_FIQ:  i8 = 20;
+pub const R13_FIQ:  i8 = 21;
+pub const R14_FIQ:  i8 = 22;
+pub const R13_SV:   i8 = 23;
+pub const R14_SV:   i8 = 24;
+pub const R13_ABT:  i8 = 25;
+pub const R14_ABT:  i8 = 26;
+pub const R13_IRQ:  i8 = 27;
+pub const R14_IRQ:  i8 = 28;
+pub const R13_UND:  i8 = 29;
+pub const R14_UND:  i8 = 30;
+pub const NUM_REGS: usize = 31;
 
-pub const PC: i8 = R15;
+// Saved status register indices
+pub const SPSR_FIQ: i8 = 0;
+pub const SPSR_SV:  i8 = 1;
+pub const SPSR_ABT: i8 = 2;
+pub const SPSR_IRQ: i8 = 3;
+pub const SPSR_UND: i8 = 4;
+pub const NUM_STATUS_REGS: usize = 6;
 
-#[derive(Copy, Clone, Debug, Default)]
-pub struct Register(RType);
-
-impl Register {
-    pub fn read(&self) -> RType {
-        self.0
-    }
-
-    // pub fn read_u32(&self) -> u32 {
-    //     self.read_RType()
-    // }
-
-    // pub fn read_i32(&self) -> i32 {
-    //     unsafe {
-    //         mem::transmute::<RType, i32>(self.0)
-    //     }
-    // }
-
-    // pub fn read_f32(&self) -> f32 {
-    //     unsafe {
-    //         mem::transmute::<RType, f32>(self.0)
-    //     }
-    // }
-
-    pub fn write(&mut self, val: RType) {
-        self.0 = val
-    }
-
-    // pub fn write_i32(&self, val: i32) -> i32 {
-    //     unsafe {
-    //         mem::transmute::<RType, i32>(self.0)
-    //     }
-    // }
-
-    // pub fn write_f32(&mut self, val: f32) {
-    //     unsafe {
-    //         mem::transmute::<RType, f32>(self.0)
-    //     }
-    // }
-
-    pub fn read_masked(&self, mask: RType) -> RType {
-        self.0 & mask
-    }
-
-    pub fn set(&mut self, mask: RType, val: RType) {
-        self.0 |= val & mask
-    }
-
-    pub fn reset(&mut self, mask: RType, val: RType) {
-        self.0 &= !(val & mask)
-    }
-
-    pub fn toggle(&mut self, mask: RType, val: RType) {
-        self.0 ^= val & mask
-    }
-}
+// Register alias
+pub const SP:   i8 = R13;
+pub const LINK: i8 = R14;
+pub const PC:   i8 = R15;
 
 // Modes of execution for ARM7TDMI
-// TODO: Consider creating a typed state machine if performance is an issue
+// TODO: Consider creating a typed state machine if performance is an issue: SEE
+// BOTTOM OF THIS FILE
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ARM7Mode {
     User       = USER_MODE as isize,
-    FIQ        = FIQ_MODE as isize,
-    IRQ        = IRQ_MODE as isize,
-    Supervisor = SV_MODE as isize,
+    FIQ        = FIQ_MODE  as isize,
+    IRQ        = IRQ_MODE  as isize,
+    Supervisor = SV_MODE   as isize,
     Abort      = ABRT_MODE as isize,
     Undefined  = UDEF_MODE as isize,
-    System     = SYS_MODE as isize,
+    System     = SYS_MODE  as isize,
 }
 
 impl fmt::Display for ARM7Mode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mode_word = match *self {
-            User => "User",
-            FIQ => "FIQ",
-            IRQ => "IRQ",
+            User       => "User",
+            FIQ        => "FIQ",
+            IRQ        => "IRQ",
             Supervisor => "Supervisor",
-            Abort => "Abort",
-            Undefined => "Undefined",
-            System => "System",
+            Abort      => "Abort",
+            Undefined  => "Undefined",
+            System     => "System",
         };
         write![f, "{}", mode_word]
     }
@@ -163,8 +112,25 @@ impl fmt::Display for ARM7Mode {
 // Registers from:
 // http://www.atmel.com/Images/DDI0029G_7TDMI_R3_trm.pdf
 // section 2.6, page 2-8
+#[allow(missing_copy_implementations)]
 pub struct ARM7 {
     regs: [Register; NUM_REGS],
+    cpsr: Register,
+    spsr: [Register; NUM_STATUS_REGS],
+}
+
+impl Default for ARM7 {
+    fn default() -> ARM7 {
+        let mut cpu = ARM7 {
+            regs: [Register::default(); NUM_REGS],
+            cpsr: Register::default(),
+            spsr: [Register::default(); NUM_STATUS_REGS],
+        };
+
+        cpu.set_mode(FIQ);
+        cpu.set_irq_disable();
+        cpu
+    }
 }
 
 // Implementation of ARM7TDMI
@@ -215,89 +181,105 @@ impl ARM7 {
         }
     }
 
-    fn reg(&self, reg_num: i8) -> &Register {
+    fn reg_raw(&self, reg_num: i8) -> &Register {
         &self.regs[reg_num as usize]
     }
 
-    fn reg_mut(&mut self, reg_num: i8) -> &mut Register {
+    fn reg_raw_mut(&mut self, reg_num: i8) -> &mut Register {
         &mut self.regs[reg_num as usize]
     }
 
-    fn reg_map(&self, reg_num: i8) -> Option<&Register> {
+    pub fn reg(&self, reg_num: i8) -> Option<&Register> {
         match self.reg_map_index(reg_num) {
-            Some(x) => Some(self.reg(x)),
+            Some(x) => Some(self.reg_raw(x)),
             None => None,
         }
     }
 
-    fn reg_map_mut(&mut self, reg_num: i8) -> Option<&mut Register> {
+    pub fn reg_mut(&mut self, reg_num: i8) -> Option<&mut Register> {
         match self.reg_map_index(reg_num) {
-            Some(x) => Some(self.reg_mut(x)),
+            Some(x) => Some(self.reg_raw_mut(x)),
             None => None,
         }
     }
 
     // PC register
     pub fn pc(&self) -> RType {
-        self.reg(PC).read()
+        self.reg_raw(PC).read()
     }
 
     pub fn inc_pc(&mut self) {
-        let pc_val = self.reg(PC).read();
+        let pc_val = self.reg_raw(PC).read();
         if self.is_thumb() {
-            self.reg_mut(PC).write((pc_val + 0b10) & 0xFFFFFFFE);
+            self.reg_raw_mut(PC).write((pc_val + 0b10) & 0xFFFFFFFE);
         }
         else {
-            self.reg_mut(PC).write((pc_val + 0b100) & 0xFFFFFFFC)
+            self.reg_raw_mut(PC).write((pc_val + 0b100) & 0xFFFFFFFC)
         }
+    }
+
+    pub fn set_pc(&mut self, pc_val: RType) {
+        self.reg_raw_mut(PC).write(pc_val);
     }
 
     // CPSR Register access
     // TODO: Do we need mutators for this?
-    pub fn cpsr(&self) -> RType {
-        self.reg(CPSR).read()
+    pub fn cpsr(&self) -> &Register {
+        &self.cpsr
+    }
+
+    pub fn spsr(&self) -> Option<&Register> {
+        match self.mode() {
+            User       => None,
+            FIQ        => Some(&self.spsr[SPSR_FIQ as usize]),
+            IRQ        => Some(&self.spsr[SPSR_IRQ as usize]),
+            Supervisor => Some(&self.spsr[SPSR_SV  as usize]),
+            Abort      => Some(&self.spsr[SPSR_ABT as usize]),
+            Undefined  => Some(&self.spsr[SPSR_UND as usize]),
+            System     => None,
+        }
     }
 
     // Negative or less than
-    pub fn is_neg_lt(&self) -> bool { self.reg(CPSR).read_masked(N_MASK) != 0 }
-    pub fn set_neg_lt(&mut self)    { self.reg_mut(CPSR).set(N_MASK, N_MASK); }
-    pub fn reset_neg_lt(&mut self)  { self.reg_mut(CPSR).reset(N_MASK, N_MASK); }
+    pub fn is_neg_lt(&self) -> bool { self.cpsr.read_masked(N_MASK) != 0 }
+    pub fn set_neg_lt(&mut self)    { self.cpsr.set(N_MASK, N_MASK); }
+    pub fn reset_neg_lt(&mut self)  { self.cpsr.reset(N_MASK, N_MASK); }
 
     // Zero
-    pub fn is_zero(&self) -> bool { self.reg(CPSR).read_masked(Z_MASK) != 0 }
-    pub fn set_zero(&mut self)    { self.reg_mut(CPSR).set(Z_MASK, Z_MASK); }
-    pub fn reset_zero(&mut self)  { self.reg_mut(CPSR).reset(Z_MASK, Z_MASK); }
+    pub fn is_zero(&self) -> bool { self.cpsr.read_masked(Z_MASK) != 0 }
+    pub fn set_zero(&mut self)    { self.cpsr.set(Z_MASK, Z_MASK); }
+    pub fn reset_zero(&mut self)  { self.cpsr.reset(Z_MASK, Z_MASK); }
 
     // Carry, borrow, or extend
-    pub fn is_carry(&self) -> bool { self.reg(CPSR).read_masked(C_MASK) != 0 }
-    pub fn set_carry(&mut self)    { self.reg_mut(CPSR).set(C_MASK, C_MASK); }
-    pub fn reset_carry(&mut self)  { self.reg_mut(CPSR).reset(C_MASK, C_MASK); }
+    pub fn is_carry(&self) -> bool { self.cpsr.read_masked(C_MASK) != 0 }
+    pub fn set_carry(&mut self)    { self.cpsr.set(C_MASK, C_MASK); }
+    pub fn reset_carry(&mut self)  { self.cpsr.reset(C_MASK, C_MASK); }
 
     // Overflow
-    pub fn is_overflow(&self) -> bool { self.reg(CPSR).read_masked(V_MASK) != 0 }
-    pub fn set_overflow(&mut self)    { self.reg_mut(CPSR).set(V_MASK, V_MASK); }
-    pub fn reset_overflow(&mut self)  { self.reg_mut(CPSR).reset(V_MASK, V_MASK); }
+    pub fn is_overflow(&self) -> bool { self.cpsr.read_masked(V_MASK) != 0 }
+    pub fn set_overflow(&mut self)    { self.cpsr.set(V_MASK, V_MASK); }
+    pub fn reset_overflow(&mut self)  { self.cpsr.reset(V_MASK, V_MASK); }
 
     // Reset condition bits
-    pub fn reset_cond(&mut self) { self.reg_mut(CPSR).reset(COND_MASK, COND_MASK); }
+    pub fn reset_cond(&mut self) { self.cpsr.reset(COND_MASK, COND_MASK); }
 
     // IRQ disable
-    pub fn is_irq_disable(&self) -> bool { self.reg(CPSR).read_masked(I_MASK) != 0 }
-    pub fn set_irq_disable(&mut self)    { self.reg_mut(CPSR).set(I_MASK, I_MASK); }
-    pub fn reset_irq_disable(&mut self)  { self.reg_mut(CPSR).reset(I_MASK, I_MASK); }
+    pub fn is_irq_disable(&self) -> bool { self.cpsr.read_masked(I_MASK) != 0 }
+    pub fn set_irq_disable(&mut self)    { self.cpsr.set(I_MASK, I_MASK); }
+    pub fn reset_irq_disable(&mut self)  { self.cpsr.reset(I_MASK, I_MASK); }
 
     // FRQ disable
-    pub fn is_fiq_disable(&self) -> bool { self.reg(CPSR).read_masked(F_MASK) != 0 }
-    pub fn set_fiq_disable(&mut self)    { self.reg_mut(CPSR).set(F_MASK, F_MASK); }
-    pub fn reset_fiq_disable(&mut self)  { self.reg_mut(CPSR).reset(F_MASK, F_MASK); }
+    pub fn is_fiq_disable(&self) -> bool { self.cpsr.read_masked(F_MASK) != 0 }
+    pub fn set_fiq_disable(&mut self)    { self.cpsr.set(F_MASK, F_MASK); }
+    pub fn reset_fiq_disable(&mut self)  { self.cpsr.reset(F_MASK, F_MASK); }
 
     // Thumb mode
-    pub fn is_thumb(&self) -> bool { self.reg(CPSR).read_masked(T_MASK) != 0 }
-    pub fn set_thumb(&mut self)    { self.reg_mut(CPSR).set(T_MASK, T_MASK); }
-    pub fn reset_thumb(&mut self)  { self.reg_mut(CPSR).reset(T_MASK, T_MASK); }
+    pub fn is_thumb(&self) -> bool { self.cpsr.read_masked(T_MASK) != 0 }
+    pub fn set_thumb(&mut self)    { self.cpsr.set(T_MASK, T_MASK); }
+    pub fn reset_thumb(&mut self)  { self.cpsr.reset(T_MASK, T_MASK); }
 
     pub fn mode(&self) -> ARM7Mode {
-        match self.reg(CPSR).read_masked(M_MASK) {
+        match self.cpsr.read_masked(M_MASK) {
             USER_MODE => User,
             FIQ_MODE  => FIQ,
             IRQ_MODE  => IRQ,
@@ -307,6 +289,10 @@ impl ARM7 {
             SYS_MODE  => System,
             _ => unreachable!(),
         }
+    }
+
+    pub fn set_mode(&mut self, new_mode: ARM7Mode) {
+        self.cpsr.set(M_MASK, new_mode as u32)
     }
 }
 
@@ -318,24 +304,114 @@ impl fmt::Debug for ARM7 {
 
 impl fmt::Display for ARM7 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(write![f, "ARM7TDMI State:\n"]);
-        try!(write![f, "\tMode:        {}\n", self.mode()]);
-        try!(write![f, "\tThumb Mode:  {}\n", self.is_thumb()]);
-        try!(write![f, "\tIRQ Disable: {}\n", self.is_irq_disable()]);
-        try!(write![f, "\tFIQ Disable: {}\n", self.is_fiq_disable()]);
-        try!(write![f, "\tNeg/Less:    {}\n", self.is_neg_lt()]);
-        try!(write![f, "\tZero:        {}\n", self.is_zero()]);
-        try!(write![f, "\tCarry:       {}\n", self.is_carry()]);
-        try!(write![f, "\tOverflow:    {}\n", self.is_overflow()]);
-        try!(write![f, "\tRegisters:\n"]);
-        write![f, "\t\tR1: {}({:#x})", 3, 3]
+        write![f, "ARM7TDMI:\n"]?;
+        for i in 0..R15 {
+            let reg_idx = self.reg_map_index(i).unwrap_or(-1);
+            let alt_reg = if reg_idx > PC || reg_idx < R0 { "*" } else { "" };
+            let reg_val = *self.reg(i).unwrap_or(&Register::default());
+            write![f, "\tR{:02}[{:2}]:\t{}({:p}){}\n",
+                   i, reg_idx, reg_val, reg_val, alt_reg]?;
+        }
+        write![f, "\tR{:02}[{:2}]:\t{}({:#010x})\t(PC)\n",
+               PC + 1, self.reg_map_index(PC).unwrap_or(-1),
+               self.pc(), self.pc()]?;
+
+        write![f, "\tCPSR:\t{:#032b}\n", self.cpsr()]?;
+
+        //write![f, "ARM7TDMI State:\n"]?;
+        write![f, "\tMode:        {}\n", self.mode()]?;
+        write![f, "\tThumb Mode:  {}\n", self.is_thumb()]?;
+        write![f, "\tIRQ Disable: {}\n", self.is_irq_disable()]?;
+        write![f, "\tFIQ Disable: {}\n", self.is_fiq_disable()]?;
+        write![f, "\tNeg/Less:    {}\n", self.is_neg_lt()]?;
+        write![f, "\tZero:        {}\n", self.is_zero()]?;
+        write![f, "\tCarry:       {}\n", self.is_carry()]?;
+        write![f, "\tOverflow:    {}\n", self.is_overflow()]
     }
 }
 
 // Register availability map based on mode in ARM state from:
 // http://www.atmel.com/Images/DDI0029G_7TDMI_R3_trm.pdf
 // section 2.6.1, page 2-9
+// trait CPU {
+//     fn gp_reg_op<F>(&mut self, reg_num: i8, op: F) where F: Fn(&mut Register);
+//     fn gp_reg(&self, reg_num: i8) -> &Register;
+//     fn gp_reg_mut(&mut self, reg_num: i8) -> &mut Register;
+//     fn pc(&self) -> RType;
 
+//     fn cpsr(&self) -> &Register;
+//     fn cpsr_mut(&mut self) -> &mut Register;
+
+//     fn spsr(&self) -> Option<&Register>;
+//     fn spsr_mut(&self) -> Option<&mut Register>;
+
+//     // Negative or less than
+//     fn is_neg_lt(&self) -> bool { self.cpsr().read_masked(N_MASK) != 0 }
+//     fn set_neg_lt(&mut self)    { self.cpsr_mut().set(N_MASK, N_MASK); }
+//     fn reset_neg_lt(&mut self)  { self.cpsr_mut().reset(N_MASK, N_MASK); }
+
+//     // Zero
+//     fn is_zero(&self) -> bool { self.cpsr().read_masked(Z_MASK) != 0 }
+//     fn set_zero(&mut self)    { self.cpsr_mut().set(Z_MASK, Z_MASK); }
+//     fn reset_zero(&mut self)  { self.cpsr_mut().reset(Z_MASK, Z_MASK); }
+
+//     // Carry, borrow, or extend
+//     fn is_carry(&self) -> bool { self.cpsr().read_masked(C_MASK) != 0 }
+//     fn set_carry(&mut self)    { self.cpsr_mut().set(C_MASK, C_MASK); }
+//     fn reset_carry(&mut self)  { self.cpsr_mut().reset(C_MASK, C_MASK); }
+
+//     // Overflow
+//     fn is_overflow(&self) -> bool { self.cpsr().read_masked(V_MASK) != 0 }
+//     fn set_overflow(&mut self)    { self.cpsr_mut().set(V_MASK, V_MASK); }
+//     fn reset_overflow(&mut self)  { self.cpsr_mut().reset(V_MASK, V_MASK); }
+
+//     // Reset condition bits
+//     fn reset_cond(&mut self) { self.cpsr_mut().reset(COND_MASK, COND_MASK); }
+
+//     // IRQ disable
+//     fn is_irq_disable(&self) -> bool { self.cpsr().read_masked(I_MASK) != 0 }
+//     fn set_irq_disable(&mut self)    { self.cpsr_mut().set(I_MASK, I_MASK); }
+//     fn reset_irq_disable(&mut self)  { self.cpsr_mut().reset(I_MASK, I_MASK); }
+
+//     // FRQ disable
+//     fn is_fiq_disable(&self) -> bool { self.cpsr().read_masked(F_MASK) != 0 }
+//     fn set_fiq_disable(&mut self)    { self.cpsr_mut().set(F_MASK, F_MASK); }
+//     fn reset_fiq_disable(&mut self)  { self.cpsr_mut().reset(F_MASK, F_MASK); }
+
+//     // Thumb mode
+//     fn is_thumb(&self) -> bool { self.cpsr().read_masked(T_MASK) != 0 }
+//     fn set_thumb(&mut self)    { self.cpsr_mut().set(T_MASK, T_MASK); }
+//     fn reset_thumb(&mut self)  { self.cpsr_mut().reset(T_MASK, T_MASK); }
+// }
+
+
+// pub struct UserARM7<'a> {
+//     cpu: &'a mut ARM7,
+// }
+
+// pub struct SystemARM7<'a> {
+//     cpu: &'a mut ARM7,
+// }
+
+// pub struct IRQARM7<'a> {
+//     cpu: &'a mut ARM7,
+// }
+
+// pub struct FIRARM7<'a> {
+//     cpu: &'a mut ARM7,
+// }
+
+// pub struct SupervisorARM7<'a> {
+//     cpu: &'a mut ARM7,
+// }
+
+// pub struct AbortARM7<'a> {
+//     cpu: &'a mut ARM7,
+// }
+
+// pub struct UndefinedARM7<'a> {
+//     cpu: &'a mut ARM7,
+// }
 
 // Register availability map based on mode in THUMB state from:
 // http://www.atmel.com/Images/DDI0029G_7TDMI_R3_trm.pdf

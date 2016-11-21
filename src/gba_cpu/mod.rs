@@ -1,7 +1,7 @@
 pub mod arm_cpu;
 pub mod arm_instr;
+pub mod register;
 
-use std::fmt;
 pub use gba_mem::Memory;
 pub use gba_cpu::arm_cpu::ARM7;
 

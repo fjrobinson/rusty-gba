@@ -8,21 +8,21 @@ const COND_MASK: IType = 0xF0000000;
 // Condition codes:
 // https://www.scss.tcd.ie/~waldroj/3d1/arm_arm.pdf
 // section A3.2.1
-const COND_EQ: u8 = 0b0000; // Equal; Z set
-const COND_NE: u8 = 0b0001; // Not equal; Z clear
-const COND_CS: u8 = 0b0010; // Carry set; C set     (AKA: HS)
-const COND_CC: u8 = 0b0011; // Carry clear; C clear (AKA: LO)
-const COND_MI: u8 = 0b0100; // Minus/negative; N set
-const COND_PL: u8 = 0b0101; // Plus/positive or zero; N clear
-const COND_VS: u8 = 0b0110; // Overflow; V set
-const COND_VC: u8 = 0b0111; // No overflow; V clear
-const COND_HI: u8 = 0b1000; // Unsigned higher; C set and Z clear
-const COND_LS: u8 = 0b1001; // Unsigned lower; C clear and Z set
-const COND_GE: u8 = 0b1010; // Signed greater than or equal; N == V
-const COND_LT: u8 = 0b1011; // Signed less than; N != V
-const COND_GT: u8 = 0b1100; // Signed greater than; (Z == 0 && N == V)
-const COND_LE: u8 = 0b1101; // Signed less than or equal; (Z == 1 || N != V)
-const COND_AL: u8 = 0b1110; // Always
+const COND_EQ: i8 = 0b0000; // Equal; Z set
+const COND_NE: i8 = 0b0001; // Not equal; Z clear
+const COND_CS: i8 = 0b0010; // Carry set; C set     (AKA: HS)
+const COND_CC: i8 = 0b0011; // Carry clear; C clear (AKA: LO)
+const COND_MI: i8 = 0b0100; // Minus/negative; N set
+const COND_PL: i8 = 0b0101; // Plus/positive or zero; N clear
+const COND_VS: i8 = 0b0110; // Overflow; V set
+const COND_VC: i8 = 0b0111; // No overflow; V clear
+const COND_HI: i8 = 0b1000; // Unsigned higher; C set and Z clear
+const COND_LS: i8 = 0b1001; // Unsigned lower; C clear and Z set
+const COND_GE: i8 = 0b1010; // Signed greater than or equal; N == V
+const COND_LT: i8 = 0b1011; // Signed less than; N != V
+const COND_GT: i8 = 0b1100; // Signed greater than; (Z == 0 && N == V)
+const COND_LE: i8 = 0b1101; // Signed less than or equal; (Z == 1 || N != V)
+const COND_AL: i8 = 0b1110; // Always
 
 const COND_SHIFT: IType = 27;
 const COND_EQ_MASKED: IType = 0b0000 << COND_SHIFT;
